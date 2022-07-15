@@ -105,6 +105,43 @@ class TestLedgerImporter(unittest.TestCase):
         self.assertEqual(transfers[1][0], 'Income:Nerds, Inc.')
         self.assertEqual(transfers[1][1], None)
 
+    @mock.patch('ledger_importer.open')
+    def test_parse_multiple_simple_transactions(self, mock_open):
+        mock_open.return_value.__enter__.return_value.readlines.return_value = """
+2022/01/02 Consulting Income
+    Asset:MyBank:Checking  $123.45
+    Income:Nerds, Inc.
+
+2022/01/03 20m CW HF Radio Kit
+    Expenses:Hobby:Ham Radio  $75
+    Asset:MyBank:Checking
+""".split('\n')
+        transactions = ledger_importer.import_ledger('fake.ledger')
+
+        self.assertEqual(len(transactions), 2)
+        t1 = transactions[0]
+
+        self.assertEqual(t1.date, '2022/01/02')
+        self.assertEqual(t1.description, 'Consulting Income')
+
+        transfers = t1.transfers
+        self.assertEqual(len(transfers), 2)
+        self.assertEqual(transfers[0][0], 'Asset:MyBank:Checking')
+        self.assertEqual(transfers[0][1], '$123.45')
+        self.assertEqual(transfers[1][0], 'Income:Nerds, Inc.')
+        self.assertEqual(transfers[1][1], None)
+
+        t2 = transactions[1]
+        self.assertEqual(t2.date, '2022/01/03')
+        self.assertEqual(t2.description, '20m CW HF Radio Kit')
+
+        transfers = t2.transfers
+        self.assertEqual(len(transfers), 2)
+        self.assertEqual(transfers[0][0], 'Expenses:Hobby:Ham Radio')
+        self.assertEqual(transfers[0][1], '$75')
+        self.assertEqual(transfers[1][0], 'Asset:MyBank:Checking')
+        self.assertEqual(transfers[1][1], None)
+
 
 if __name__ == '__main__':
     unittest.main()

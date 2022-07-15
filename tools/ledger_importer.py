@@ -134,14 +134,22 @@ def import_ledger(path: str) -> None:
     if len(lines) == 0:
         return []
 
-    start = _scan_to_nonempty_line(lines, 0)
-    if start is None:
-        return []
+    transactions = []
 
-    end = _scan_to_last_nonempty_line(lines, start)
+    last_end = -1  # inclusive
+    while last_end < len(lines):
+        start = _scan_to_nonempty_line(lines, last_end + 1)
+        if start is None:
+            break
 
-    transaction = _form_transaction(lines[start:end + 1])
-    return [transaction]
+        end = _scan_to_last_nonempty_line(lines, start)
+
+        transaction = _form_transaction(lines[start:end + 1])
+        transactions.append(transaction)
+
+        last_end = end
+
+    return transactions
 
 
 if __name__ == '__main__':
