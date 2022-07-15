@@ -29,6 +29,32 @@ def _scan_to_nonempty_line(text: list[str], start_line: int) -> int:
             return curr_line
 
 
+def _scan_to_last_nonempty_line(text: list[str], start_line: int) -> int:
+    """Return index of last non-empty line"""
+    if len(text) == 0:
+        return None
+    if start_line < 0 or start_line >= len(text):
+        return None
+
+    # first line must have text
+    if not _has_text(text[start_line]):
+        return None
+
+    # skip first line since we just confirmed
+    # it has text
+    curr_line = start_line + 1
+    while True:
+        if curr_line >= len(text):
+            # in this case, the end of the text is
+            # the boundary that determines the last
+            # nonempty line
+            return curr_line - 1
+        if _has_text(text[curr_line]):
+            curr_line += 1
+        else:
+            return curr_line - 1
+
+
 class MalformedTransaction(Exception):
     pass
 

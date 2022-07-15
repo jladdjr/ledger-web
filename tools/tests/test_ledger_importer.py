@@ -41,6 +41,35 @@ class TestLedgerImporter(unittest.TestCase):
         self.assertEqual(ledger_importer._scan_to_nonempty_line(text3, 9), None)
         self.assertEqual(ledger_importer._scan_to_nonempty_line(text3, len(text3)), None)
 
+    def test_scan_to_last_nonempty_line(self):
+        text1 = ['a', 'b', 'c', ' ']
+        self.assertEqual(ledger_importer._scan_to_last_nonempty_line(text1, 0), 2)
+        self.assertEqual(ledger_importer._scan_to_last_nonempty_line(text1, 1), 2)
+        self.assertEqual(ledger_importer._scan_to_last_nonempty_line(text1, 2), 2)
+        self.assertEqual(ledger_importer._scan_to_last_nonempty_line(text1, 3), None)
+        self.assertEqual(ledger_importer._scan_to_last_nonempty_line(text1, 4), None)
+        self.assertEqual(ledger_importer._scan_to_last_nonempty_line(text1, -1), None)
+
+        text2 = ['a', 'b', 'c', '']
+        self.assertEqual(ledger_importer._scan_to_last_nonempty_line(text2, 0), 2)
+
+        text3 = ['a', 'b', 'c', '\t']
+        self.assertEqual(ledger_importer._scan_to_last_nonempty_line(text3, 0), 2)
+
+        text4 = ['a', '']
+        self.assertEqual(ledger_importer._scan_to_last_nonempty_line(text4, 0), 0)
+
+        text5 = ['a', 'b', 'c']
+        self.assertEqual(ledger_importer._scan_to_last_nonempty_line(text5, 0), 2)
+
+        text6 = ['', ' ', '\t', 'a', 'b', 'c', '']
+        self.assertEqual(ledger_importer._scan_to_last_nonempty_line(text6, 3), 5)
+        self.assertEqual(ledger_importer._scan_to_last_nonempty_line(text6, 4), 5)
+        self.assertEqual(ledger_importer._scan_to_last_nonempty_line(text6, 5), 5)
+
+        text7 = []
+        self.assertEqual(ledger_importer._scan_to_last_nonempty_line(text7, 0), None)
+
     def test_form_transaction_simple_case(self):
         lines = ['2022/07/14 Simple Transaction',
                  '    Asset:MyBank:Checking  $123.45',
