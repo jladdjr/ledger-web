@@ -124,7 +124,7 @@ def _form_transaction(text: list[str]):
     return Transaction(date=date, description=description, transfers=transfers)
 
 
-def import_ledger(self, path: str) -> None:
+def import_ledger(path: str) -> None:
     try:
         with open(path, 'r') as ledger_file:
             lines = ledger_file.readlines()
@@ -134,11 +134,13 @@ def import_ledger(self, path: str) -> None:
     if len(lines) == 0:
         return []
 
-    start_line = _scan_to_nonempty_line(lines, 0)
-    if start_line is None:
+    start = _scan_to_nonempty_line(lines, 0)
+    if start is None:
         return []
 
-    transaction = _form_transaction(lines, start_line)
+    end = _scan_to_last_nonempty_line(lines, start)
+
+    transaction = _form_transaction(lines[start:end + 1])
     return [transaction]
 
 

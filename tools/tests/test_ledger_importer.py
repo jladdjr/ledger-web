@@ -4,7 +4,7 @@ from unittest import mock
 
 sys.path.append('..')
 
-import ledger_importer
+import ledger_importer  # noqa
 
 
 class TestLedgerImporter(unittest.TestCase):
@@ -83,29 +83,28 @@ class TestLedgerImporter(unittest.TestCase):
         self.assertEqual(transfers[0], ('Asset:MyBank:Checking', '$123.45'))
         self.assertEqual(transfers[1], ('Income:Nerds, Inc.', None))
 
+    @mock.patch('ledger_importer.open')
+    def test_parse_simple_transaction(self, mock_open):
+        mock_open.return_value.__enter__.return_value.readlines.return_value = """
+2022/01/02 Simple Transaction
+    Asset:MyBank:Checking  $123.45
+    Income:Nerds, Inc.
+""".split('\n')
+        transactions = ledger_importer.import_ledger('fake.ledger')
 
-#     @mock.patch('ledger_importer.open')
-#     def test_parse_simple_transaction(self, mock_open):
-#         mock_open.return_value.__enter__.return_value.readlines.return_value = """
-# 2022/01/02 Simple Transaction
-#     Asset:MyBank:Checking  $123.45
-#     Income:Nerds, Inc.
-# """.split('\n')
-#         ledger = ledger_importer.import_ledger('fake.ledger')
-#         transactions = ledger.transactions()
+        self.assertEqual(len(transactions), 1)
+        t = transactions[0]
 
-#         assert len(transactions) == 1
-#         t = transactions.pop()
+        self.assertEqual(t.date, '2022/01/02')
+        self.assertEqual(t.description, 'Simple Transaction')
 
-#         assert t.date == '2022/01/02'
-#         assert t.description == 'Simple Transaction'
+        transfers = t.transfers
+        self.assertEqual(len(transfers), 2)
+        self.assertEqual(transfers[0][0], 'Asset:MyBank:Checking')
+        self.assertEqual(transfers[0][1], '$123.45')
+        self.assertEqual(transfers[1][0], 'Income:Nerds, Inc.')
+        self.assertEqual(transfers[1][1], None)
 
-#         transfers = t.transfers()
-#         assert len(transfers) == 2
-#         assert transfers[0].account = 'Asset:MyBank:Checking'
-#         assert transfers[0].ammount = '$123.45'
-#         assert transfers[1].account = 'Income:Nerds, Inc.'
-#         assert transfers[1].ammount = ''
 
 if __name__ == '__main__':
     unittest.main()
