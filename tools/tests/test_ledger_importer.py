@@ -70,6 +70,35 @@ class TestLedgerImporter(unittest.TestCase):
         text7 = []
         self.assertEqual(ledger_importer._scan_to_last_nonempty_line(text7, 0), None)
 
+    def test_strip_line_comments(self):
+        # Lines that only contain a comment
+        # should be removed altogether
+        lines = ['Some text',
+                 '; Comment at beginning of line',
+                 '  ; Indented comment',
+                 'More text',
+                 'Even more text',
+                 ';; Comment with two semi-colons',
+                 ';;; Comment with three semi-colons',
+                 '',
+                 'Yet another line with text',
+                 '',
+                 'Last line of text',
+                 '',
+                 ]
+
+        expected_lines = ['Some text',
+                          'More text',
+                          'Even more text',
+                          '',
+                          'Yet another line with text',
+                          '',
+                          'Last line of text',
+                          '',
+                          ]
+        self.assertEqual(ledger_importer._strip_comments(lines),
+                         expected_lines)
+
     def test_form_transaction_simple_case(self):
         lines = ['2022/07/14 Simple Transaction',
                  '    Asset:MyBank:Checking  $123.45',

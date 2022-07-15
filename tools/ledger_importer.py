@@ -54,6 +54,13 @@ def _scan_to_last_nonempty_line(text: list[str], start_line: int) -> int:
         else:
             return curr_line - 1
 
+def _strip_comments(lines: list[str]) -> list[str]:
+    def has_content(line):
+        """determine if line contains more than
+        just a comment"""
+        return not re.match(r'^\s*;.*$', line)
+    return list(filter(has_content, lines))
+
 
 class MalformedTransaction(Exception):
     pass
