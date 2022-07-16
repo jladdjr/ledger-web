@@ -1,11 +1,18 @@
 import logging
 import re
 
-from ledger import Transaction, Transfer
+from ledger import Transaction, Transfer, TransferStatus
 
 
 logger = logging.getLogger(__name__)
 
+
+class MalformedTransaction(Exception):
+    pass
+
+
+class MalformedTransfer(Exception):
+    pass
 
 def _has_text(s: str) -> bool:
     return len(s.strip()) != 0
@@ -77,7 +84,7 @@ def _strip_comments(lines: list[str]) -> list[str]:
     return list(lines_without_inline_comments)
 
 
-def _parse_raw_amount(raw_amount: str) -> tuple(float, str):
+def _parse_raw_amount(raw_amount: str) -> tuple[float, str]:
     """Returns amount and unit as tuple.
 
     Supports dollars, euros, and custom units.
@@ -102,14 +109,14 @@ def _parse_raw_amount(raw_amount: str) -> tuple(float, str):
         res = re.match(r'^([$€])(-?[0-9,.]*)$', raw_amount)
         if res is not None:
             unit = res.group(1)
-            amount = float(res.group(2))
+            amount = float(res.group(2).replace(',', ''))
             return amount, unit
 
         # does this use a custom unit?
         res = re.match(r'^(-?[0-9,.]*) (\s+)$', raw_amount)
         if res is not None:
             unit = res.group(2)
-            amount = float(res.group(1))  # might throw an exception
+            amount = float(res.group(1).replace(',', ''))  # might throw an exception
             return amount, unit
     except ValueError:
         raise MalformedTransfer(f'Unable to parse decimal amount given in {raw_amount}')
@@ -117,14 +124,16 @@ def _parse_raw_amount(raw_amount: str) -> tuple(float, str):
     raise MalformedTransfer(f'Unable to parse amount string: {raw_amount}')
 
 
-
-
-class MalformedTransaction(Exception):
-    pass
-
-
-class MalformedTransfer(Exception):
-    pass
+def _parse_status_symbol(status_text):
+    status_text = status_text.strip()
+    if status_text == '':
+        return TransferStatus.DEFAULT
+    elif status_text == '!':
+        return TransferStatus.PENDING
+    elif status_text == '*':
+        return TransferStatus.CLEARED
+    else:
+        raise MalformedTransfer(f'Unable to parse status from: {status_text}')
 
 
 def _form_transaction(text: list[str]):
@@ -154,14 +163,17 @@ def _form_transaction(text: list[str]):
         #   or can have single spaces spread through name
         # - after account name must be two (or more) spaces
         # - amount must start with dollar or euro symbol
-        # - and then have some amount (TODO: validate decimal amount)
-        res = re.match(r'^\s{4}\s*((\S+ )*\S+)\s{2}\s*([$€]\S+)$', line)
+        # - and then have some amount
+        res = re.match(r'^\s{4}\s*(([*!] )?)((\S+ )*\S+)\s{2}\s*([$€]\S+)$', line)
         if res:
-            amount, unit = _parse_raw_amount(res.group(3))
-            transfer = Transfer(account=res.group(1),
-                                amount = amuont,
-                                unit = unit)
-            transfers.append((res.group(1), res.group(3)))
+            status = _parse_status_symbol(res.group(1))
+            account = res.group(3)
+            amount, unit = _parse_raw_amount(res.group(5))
+            transfer = Transfer(account=account,
+                                amount=amount,
+                                unit=unit,
+                                status=status)
+            transfers.append(transfer)
             continue
         else:
             # for custom units (e.g. 5 apples)
@@ -171,10 +183,16 @@ def _form_transaction(text: list[str]):
             # - after account name must be two (or more) spaces
             # - amount must have one or more non-space characters
             # - and unit must have one or more non-space characters
-            # TODO: validate decimal amount
-            res = re.match(r'^\s{4}\s*((\S+ )*\S+)\s{2}\s*(\S+ \S+)$', line)
+            res = re.match(r'^\s{4}\s*(([*!] )?)((\S+ )*\S+)\s{2}\s*(\S+ \S+)$', line)
             if res is not None:
-                transfers.append((res.group(1), res.group(2)))
+                status = _parse_status_symbol(res.group(1))
+                account = res.group(3)
+                amount, unit = _parse_raw_amount(res.group(5))
+                transfer = Transfer(account=account,
+                                    amount=amount,
+                                    unit=unit,
+                                    status=status)
+                transfers.append(transfer)
                 continue
 
         # last possibility is that this is a transfer where the amount was left blank
@@ -191,7 +209,10 @@ def _form_transaction(text: list[str]):
             raise MalformedTransaction(f'Found multiple transfers with no amount specified for {text[0]}')
 
         found_empty_amount = True
-        transfers.append((res.group(1), None))
+        transfer = Transfer(account=res.group(1),
+                            amount=None,
+                            unit=None)
+        transfers.append(transfer)
 
     return Transaction(date=date, description=description, transfers=transfers)
 

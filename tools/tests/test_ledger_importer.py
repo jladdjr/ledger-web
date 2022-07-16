@@ -118,6 +118,21 @@ class TestLedgerImporter(unittest.TestCase):
                          expected_lines)
 
     def test_parse_raw_amount(self):
+        # negative cases
+        cases = ['foo',
+                 '-$4',
+                 '5',
+                 '5.32',
+                 '2 dog dogs',
+                 '$ 5',
+                 '5 $5.00',
+                 '$5.00 5',
+                 '$3.00 dogs',
+                 '$$2.00']
+        for case in cases:
+            with self.assertRaises(ledger_importer.MalformedTransfer):
+                ledger_importer._parse_raw_amount(case)
+
         # dollars
         amt, unit = ledger_importer._parse_raw_amount('$123.45')
         self.assertEqual(amt, 123.45)
@@ -152,7 +167,7 @@ class TestLedgerImporter(unittest.TestCase):
         self.assertEqual(unit, '$')
 
         amt, unit = ledger_importer._parse_raw_amount('$1,000,000.45')
-        self.assertEqual(amt, 1000.45)
+        self.assertEqual(amt, 1000000.45)
         self.assertEqual(unit, '$')
 
         amt, unit = ledger_importer._parse_raw_amount('$1000.45')
@@ -160,19 +175,19 @@ class TestLedgerImporter(unittest.TestCase):
         self.assertEqual(unit, '$')
 
         # euros
-        amt, unit = ledger_importer._parse_raw_amount('$123.45')
+        amt, unit = ledger_importer._parse_raw_amount('€123.45')
         self.assertEqual(amt, 123.45)
         self.assertEqual(unit, '€')
 
-        amt, unit = ledger_importer._parse_raw_amount('$123')
+        amt, unit = ledger_importer._parse_raw_amount('€123')
         self.assertEqual(amt, 123.0)
         self.assertEqual(unit, '€')
 
-        amt, unit = ledger_importer._parse_raw_amount('$-123.45')
+        amt, unit = ledger_importer._parse_raw_amount('€-123.45')
         self.assertEqual(amt, -123.45)
         self.assertEqual(unit, '€')
 
-        amt, unit = ledger_importer._parse_raw_amount('$-123')
+        amt, unit = ledger_importer._parse_raw_amount('€-123')
         self.assertEqual(amt, -123.0)
         self.assertEqual(unit, '€')
 
@@ -192,7 +207,6 @@ class TestLedgerImporter(unittest.TestCase):
         amt, unit = ledger_importer._parse_raw_amount('-123 FOO')
         self.assertEqual(amt, -123.0)
         self.assertEqual(unit, 'FOO')
-
 
     def test_form_transaction_simple_case(self):
         lines = ['2022/07/14 Simple Transaction',
