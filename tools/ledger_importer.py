@@ -1,10 +1,16 @@
+import argparse
 import logging
 import re
+import sys
 
 from ledger import Transaction, Transfer, TransferStatus
 
 
 logger = logging.getLogger(__name__)
+
+handler = logging.StreamHandler(sys.stdout)
+handler.setLevel(logging.DEBUG)
+logger.addHandler(handler)
 
 
 class MalformedTransaction(Exception):
@@ -202,7 +208,9 @@ def _form_transaction(text: list[str]):
             # - after account name must be two (or more) spaces
             # - amount must have one or more non-space characters
             # - and unit must have one or more non-space characters
-            res = re.match(r'^\s{4}\s*(([*!] )?)((\S+ )*\S+)\s{2}\s*(\S+ \S+)$', line)
+            # TODO: Currently ignores price information
+            #       e.g. 5 FOO @ $20.00
+            res = re.match(r'^\s{4}\s*(([*!] )?)((\S+ )*\S+)\s{2}\s*([0-9.]+ \S+)( @ \S+)$', line)
             if res is not None:
                 status = _parse_status_symbol(res.group(1))
                 account = res.group(3)
@@ -276,4 +284,14 @@ def import_ledger(path: str) -> None:
 
 
 if __name__ == '__main__':
-    pass
+    parser = argparse.ArgumentParser(description='Imports Ledger file')
+    parser.add_argument('path', type=str, help='Path to Ledger file')
+    parser.add_argument('--verbose', '-v', action='count', default=0)
+
+    args = parser.parse_args()
+
+    if args.verbose:
+        logger.setLevel(logging.DEBUG)
+
+    transactions = import_ledger(args.path)
+    logger.info(f'Imported {len(transactions)} transactions')
