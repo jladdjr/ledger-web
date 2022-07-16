@@ -113,7 +113,7 @@ def _parse_raw_amount(raw_amount: str) -> tuple[float, str]:
             return amount, unit
 
         # does this use a custom unit?
-        res = re.match(r'^(-?[0-9,.]*) (\s+)$', raw_amount)
+        res = re.match(r'^(-?[0-9,.]*) (\S+)$', raw_amount)
         if res is not None:
             unit = res.group(2)
             amount = float(res.group(1).replace(',', ''))  # might throw an exception

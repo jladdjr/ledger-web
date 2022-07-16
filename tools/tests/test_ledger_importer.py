@@ -125,7 +125,6 @@ class TestLedgerImporter(unittest.TestCase):
                  '5.32',
                  '2 dog dogs',
                  '$ 5',
-                 '5 $5.00',
                  '$5.00 5',
                  '$3.00 dogs',
                  '$$2.00']
@@ -253,7 +252,7 @@ class TestLedgerImporter(unittest.TestCase):
     def test_form_transaction_with_cleared_and_pending_entries(self):
         lines = ['2022/07/14 Simple Transaction',
                  '    ! Asset:MyBank:Checking  $123.45',
-                 '    * Income:Nerds, Inc.']
+                 '    * Income:Nerds, Inc.  $-123.45']
         transaction = ledger_importer._form_transaction(lines)
 
         self.assertEqual(transaction.date, '2022/07/14')
@@ -267,8 +266,8 @@ class TestLedgerImporter(unittest.TestCase):
         self.assertEqual(transfer1.status, TransferStatus.PENDING)
 
         self.assertEqual(transfer2.account, 'Income:Nerds, Inc.')
-        self.assertEqual(transfer2.amount, None)
-        self.assertEqual(transfer2.unit, None)
+        self.assertEqual(transfer2.amount, -123.45)
+        self.assertEqual(transfer2.unit, '$')
         self.assertEqual(transfer2.status, TransferStatus.CLEARED)
 
     @mock.patch('ledger_importer.open')
