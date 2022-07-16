@@ -1,7 +1,7 @@
 import logging
 import re
 
-from ledger import Transaction
+from ledger import Transaction, Transfer
 
 
 logger = logging.getLogger(__name__)
@@ -77,7 +77,53 @@ def _strip_comments(lines: list[str]) -> list[str]:
     return list(lines_without_inline_comments)
 
 
+def _parse_raw_amount(raw_amount: str) -> tuple(float, str):
+    """Returns amount and unit as tuple.
+
+    Supports dollars, euros, and custom units.
+
+    For example:
+    - $500.00
+    - €300.00
+    - 2 FOO
+
+    Note that negative sign must always come immediately
+    before the amount in the original string.
+
+    For example:
+    - Valid: $-42.00
+    - Not Valid: -$42.00
+
+    Raises MalformedTransfer if it is unable to parse `raw_amount`
+    into a unit and decimal amount.
+    """
+    try:
+        # does this use dollars or euros?
+        res = re.match(r'^([$€])(-?[0-9,.]*)$', raw_amount)
+        if res is not None:
+            unit = res.group(1)
+            amount = float(res.group(2))
+            return amount, unit
+
+        # does this use a custom unit?
+        res = re.match(r'^(-?[0-9,.]*) (\s+)$', raw_amount)
+        if res is not None:
+            unit = res.group(2)
+            amount = float(res.group(1))  # might throw an exception
+            return amount, unit
+    except ValueError:
+        raise MalformedTransfer(f'Unable to parse decimal amount given in {raw_amount}')
+
+    raise MalformedTransfer(f'Unable to parse amount string: {raw_amount}')
+
+
+
+
 class MalformedTransaction(Exception):
+    pass
+
+
+class MalformedTransfer(Exception):
     pass
 
 
@@ -111,6 +157,10 @@ def _form_transaction(text: list[str]):
         # - and then have some amount (TODO: validate decimal amount)
         res = re.match(r'^\s{4}\s*((\S+ )*\S+)\s{2}\s*([$€]\S+)$', line)
         if res:
+            amount, unit = _parse_raw_amount(res.group(3))
+            transfer = Transfer(account=res.group(1),
+                                amount = amuont,
+                                unit = unit)
             transfers.append((res.group(1), res.group(3)))
             continue
         else:

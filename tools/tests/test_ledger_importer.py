@@ -4,6 +4,7 @@ from unittest import mock
 
 sys.path.append('..')
 
+from ledger import TransferStatus  # noqa
 import ledger_importer  # noqa
 
 
@@ -116,6 +117,83 @@ class TestLedgerImporter(unittest.TestCase):
         self.assertEqual(ledger_importer._strip_comments(lines),
                          expected_lines)
 
+    def test_parse_raw_amount(self):
+        # dollars
+        amt, unit = ledger_importer._parse_raw_amount('$123.45')
+        self.assertEqual(amt, 123.45)
+        self.assertEqual(unit, '$')
+
+        amt, unit = ledger_importer._parse_raw_amount('$123')
+        self.assertEqual(amt, 123.0)
+        self.assertEqual(unit, '$')
+
+        amt, unit = ledger_importer._parse_raw_amount('$-123.45')
+        self.assertEqual(amt, -123.45)
+        self.assertEqual(unit, '$')
+
+        amt, unit = ledger_importer._parse_raw_amount('$-123')
+        self.assertEqual(amt, -123.0)
+        self.assertEqual(unit, '$')
+
+        amt, unit = ledger_importer._parse_raw_amount('$.45')
+        self.assertEqual(amt, 0.45)
+        self.assertEqual(unit, '$')
+
+        amt, unit = ledger_importer._parse_raw_amount('$0.45')
+        self.assertEqual(amt, 0.45)
+        self.assertEqual(unit, '$')
+
+        amt, unit = ledger_importer._parse_raw_amount('$1,000.45')
+        self.assertEqual(amt, 1000.45)
+        self.assertEqual(unit, '$')
+
+        amt, unit = ledger_importer._parse_raw_amount('$-1,000.45')
+        self.assertEqual(amt, -1000.45)
+        self.assertEqual(unit, '$')
+
+        amt, unit = ledger_importer._parse_raw_amount('$1,000,000.45')
+        self.assertEqual(amt, 1000.45)
+        self.assertEqual(unit, '$')
+
+        amt, unit = ledger_importer._parse_raw_amount('$1000.45')
+        self.assertEqual(amt, 1000.45)
+        self.assertEqual(unit, '$')
+
+        # euros
+        amt, unit = ledger_importer._parse_raw_amount('$123.45')
+        self.assertEqual(amt, 123.45)
+        self.assertEqual(unit, '€')
+
+        amt, unit = ledger_importer._parse_raw_amount('$123')
+        self.assertEqual(amt, 123.0)
+        self.assertEqual(unit, '€')
+
+        amt, unit = ledger_importer._parse_raw_amount('$-123.45')
+        self.assertEqual(amt, -123.45)
+        self.assertEqual(unit, '€')
+
+        amt, unit = ledger_importer._parse_raw_amount('$-123')
+        self.assertEqual(amt, -123.0)
+        self.assertEqual(unit, '€')
+
+        # FOO stock
+        amt, unit = ledger_importer._parse_raw_amount('123.45 FOO')
+        self.assertEqual(amt, 123.45)
+        self.assertEqual(unit, 'FOO')
+
+        amt, unit = ledger_importer._parse_raw_amount('123 FOO')
+        self.assertEqual(amt, 123.0)
+        self.assertEqual(unit, 'FOO')
+
+        amt, unit = ledger_importer._parse_raw_amount('-123.45 FOO')
+        self.assertEqual(amt, -123.45)
+        self.assertEqual(unit, 'FOO')
+
+        amt, unit = ledger_importer._parse_raw_amount('-123 FOO')
+        self.assertEqual(amt, -123.0)
+        self.assertEqual(unit, 'FOO')
+
+
     def test_form_transaction_simple_case(self):
         lines = ['2022/07/14 Simple Transaction',
                  '    Asset:MyBank:Checking  $123.45',
@@ -124,13 +202,63 @@ class TestLedgerImporter(unittest.TestCase):
 
         self.assertEqual(transaction.date, '2022/07/14')
         self.assertEqual(transaction.description, 'Simple Transaction')
-        transfers = transaction.transfers
-        self.assertEqual(len(transfers), 2)
-        self.assertEqual(transfers[0], ('Asset:MyBank:Checking', '$123.45'))
-        self.assertEqual(transfers[1], ('Income:Nerds, Inc.', None))
+
+        self.assertEqual(len(transaction.transfers), 2)
+        transfer1, transfer2 = transaction.transfers
+        self.assertEqual(transfer1.account, 'Asset:MyBank:Checking')
+        self.assertEqual(transfer1.amount, 123.45)
+        self.assertEqual(transfer1.unit, '$')
+        self.assertEqual(transfer1.status, TransferStatus.DEFAULT)
+
+        self.assertEqual(transfer2.account, 'Income:Nerds, Inc.')
+        self.assertEqual(transfer2.amount, None)
+        self.assertEqual(transfer2.unit, None)
+        self.assertEqual(transfer2.status, TransferStatus.DEFAULT)
+
+    def test_form_transaction_with_cleared_entry(self):
+        lines = ['2022/07/14 Simple Transaction',
+                 '    * Asset:MyBank:Checking  $123.45',
+                 '    Income:Nerds, Inc.']
+        transaction = ledger_importer._form_transaction(lines)
+
+        self.assertEqual(transaction.date, '2022/07/14')
+        self.assertEqual(transaction.description, 'Simple Transaction')
+
+        self.assertEqual(len(transaction.transfers), 2)
+        transfer1, transfer2 = transaction.transfers
+        self.assertEqual(transfer1.account, 'Asset:MyBank:Checking')
+        self.assertEqual(transfer1.amount, 123.45)
+        self.assertEqual(transfer1.unit, '$')
+        self.assertEqual(transfer1.status, TransferStatus.CLEARED)
+
+        self.assertEqual(transfer2.account, 'Income:Nerds, Inc.')
+        self.assertEqual(transfer2.amount, None)
+        self.assertEqual(transfer2.unit, None)
+        self.assertEqual(transfer2.status, TransferStatus.DEFAULT)
+
+    def test_form_transaction_with_cleared_and_pending_entries(self):
+        lines = ['2022/07/14 Simple Transaction',
+                 '    ! Asset:MyBank:Checking  $123.45',
+                 '    * Income:Nerds, Inc.']
+        transaction = ledger_importer._form_transaction(lines)
+
+        self.assertEqual(transaction.date, '2022/07/14')
+        self.assertEqual(transaction.description, 'Simple Transaction')
+
+        self.assertEqual(len(transaction.transfers), 2)
+        transfer1, transfer2 = transaction.transfers
+        self.assertEqual(transfer1.account, 'Asset:MyBank:Checking')
+        self.assertEqual(transfer1.amount, 123.45)
+        self.assertEqual(transfer1.unit, '$')
+        self.assertEqual(transfer1.status, TransferStatus.PENDING)
+
+        self.assertEqual(transfer2.account, 'Income:Nerds, Inc.')
+        self.assertEqual(transfer2.amount, None)
+        self.assertEqual(transfer2.unit, None)
+        self.assertEqual(transfer2.status, TransferStatus.CLEARED)
 
     @mock.patch('ledger_importer.open')
-    def test_parse_simple_transaction(self, mock_open):
+    def test_parse_ledger_with_simple_transaction(self, mock_open):
         mock_open.return_value.__enter__.return_value.readlines.return_value = """
 2022/01/02 Simple Transaction
     Asset:MyBank:Checking  $123.45
@@ -144,15 +272,20 @@ class TestLedgerImporter(unittest.TestCase):
         self.assertEqual(t.date, '2022/01/02')
         self.assertEqual(t.description, 'Simple Transaction')
 
-        transfers = t.transfers
-        self.assertEqual(len(transfers), 2)
-        self.assertEqual(transfers[0][0], 'Asset:MyBank:Checking')
-        self.assertEqual(transfers[0][1], '$123.45')
-        self.assertEqual(transfers[1][0], 'Income:Nerds, Inc.')
-        self.assertEqual(transfers[1][1], None)
+        self.assertEqual(len(t.transfers), 2)
+        transfer1, transfer2 = t.transfers
+        self.assertEqual(transfer1.account, 'Asset:MyBank:Checking')
+        self.assertEqual(transfer1.amount, 123.45)
+        self.assertEqual(transfer1.unit, '$')
+        self.assertEqual(transfer1.status, TransferStatus.DEFAULT)
+
+        self.assertEqual(transfer2.account, 'Income:Nerds, Inc.')
+        self.assertEqual(transfer2.amount, None)
+        self.assertEqual(transfer2.unit, None)
+        self.assertEqual(transfer2.status, TransferStatus.DEFAULT)
 
     @mock.patch('ledger_importer.open')
-    def test_parse_multiple_simple_transactions(self, mock_open):
+    def test_parse_ledger_with_multiple_simple_transactions(self, mock_open):
         mock_open.return_value.__enter__.return_value.readlines.return_value = """
 2022/01/02 Consulting Income
     Asset:MyBank:Checking  $123.45
@@ -170,23 +303,33 @@ class TestLedgerImporter(unittest.TestCase):
         self.assertEqual(t1.date, '2022/01/02')
         self.assertEqual(t1.description, 'Consulting Income')
 
-        transfers = t1.transfers
-        self.assertEqual(len(transfers), 2)
-        self.assertEqual(transfers[0][0], 'Asset:MyBank:Checking')
-        self.assertEqual(transfers[0][1], '$123.45')
-        self.assertEqual(transfers[1][0], 'Income:Nerds, Inc.')
-        self.assertEqual(transfers[1][1], None)
+        self.assertEqual(len(t1.transfers), 2)
+        transfer1, transfer2 = t1.transfers
+        self.assertEqual(transfer1.account, 'Asset:MyBank:Checking')
+        self.assertEqual(transfer1.amount, 123.45)
+        self.assertEqual(transfer1.unit, '$')
+        self.assertEqual(transfer1.status, TransferStatus.DEFAULT)
+
+        self.assertEqual(transfer2.account, 'Income:Nerds, Inc.')
+        self.assertEqual(transfer2.amount, None)
+        self.assertEqual(transfer2.unit, None)
+        self.assertEqual(transfer2.status, TransferStatus.DEFAULT)
 
         t2 = transactions[1]
         self.assertEqual(t2.date, '2022/01/03')
         self.assertEqual(t2.description, '20m CW HF Radio Kit')
 
-        transfers = t2.transfers
-        self.assertEqual(len(transfers), 2)
-        self.assertEqual(transfers[0][0], 'Expenses:Hobby:Ham Radio')
-        self.assertEqual(transfers[0][1], '$75')
-        self.assertEqual(transfers[1][0], 'Asset:MyBank:Checking')
-        self.assertEqual(transfers[1][1], None)
+        self.assertEqual(len(t2.transfers), 2)
+        transfer1, transfer2 = t2.transfers
+        self.assertEqual(transfer1.account, 'Expenses:Hobby:Ham Radio')
+        self.assertEqual(transfer1.amount, 75.0)
+        self.assertEqual(transfer1.unit, '$')
+        self.assertEqual(transfer1.status, TransferStatus.DEFAULT)
+
+        self.assertEqual(transfer2.account, 'Asset:MyBank:Checking')
+        self.assertEqual(transfer2.amount, None)
+        self.assertEqual(transfer2.unit, None)
+        self.assertEqual(transfer2.status, TransferStatus.DEFAULT)
 
     @mock.patch('ledger_importer.open')
     def test_parse_multiple_simple_transactions_with_comments(self, mock_open):
@@ -219,23 +362,33 @@ class TestLedgerImporter(unittest.TestCase):
         self.assertEqual(t1.date, '2022/01/02')
         self.assertEqual(t1.description, 'Consulting Income')
 
-        transfers = t1.transfers
-        self.assertEqual(len(transfers), 2)
-        self.assertEqual(transfers[0][0], 'Asset:MyBank:Checking')
-        self.assertEqual(transfers[0][1], '$123.45')
-        self.assertEqual(transfers[1][0], 'Income:Nerds, Inc.')
-        self.assertEqual(transfers[1][1], None)
+        self.assertEqual(len(t1.transfers), 2)
+        transfer1, transfer2 = t1.transfers
+        self.assertEqual(transfer1.account, 'Asset:MyBank:Checking')
+        self.assertEqual(transfer1.amount, 123.45)
+        self.assertEqual(transfer1.unit, '$')
+        self.assertEqual(transfer1.status, TransferStatus.DEFAULT)
+
+        self.assertEqual(transfer2.account, 'Income:Nerds, Inc.')
+        self.assertEqual(transfer2.amount, None)
+        self.assertEqual(transfer2.unit, None)
+        self.assertEqual(transfer2.status, TransferStatus.DEFAULT)
 
         t2 = transactions[1]
         self.assertEqual(t2.date, '2022/01/03')
         self.assertEqual(t2.description, '20m CW HF Radio Kit')
 
-        transfers = t2.transfers
-        self.assertEqual(len(transfers), 2)
-        self.assertEqual(transfers[0][0], 'Expenses:Hobby:Ham Radio')
-        self.assertEqual(transfers[0][1], '$75')
-        self.assertEqual(transfers[1][0], 'Asset:MyBank:Checking')
-        self.assertEqual(transfers[1][1], None)
+        self.assertEqual(len(t2.transfers), 2)
+        transfer1, transfer2 = t2.transfers
+        self.assertEqual(transfer1.account, 'Expenses:Hobby:Ham Radio')
+        self.assertEqual(transfer1.amount, 75.0)
+        self.assertEqual(transfer1.unit, '$')
+        self.assertEqual(transfer1.status, TransferStatus.DEFAULT)
+
+        self.assertEqual(transfer2.account, 'Asset:MyBank:Checking')
+        self.assertEqual(transfer2.amount, None)
+        self.assertEqual(transfer2.unit, None)
+        self.assertEqual(transfer2.status, TransferStatus.DEFAULT)
 
 
 if __name__ == '__main__':
