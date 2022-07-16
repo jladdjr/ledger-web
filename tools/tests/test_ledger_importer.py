@@ -436,6 +436,70 @@ class TestLedgerImporter(unittest.TestCase):
         self.assertEqual(transfer2.unit, None)
         self.assertEqual(transfer2.status, TransferStatus.DEFAULT)
 
+    @mock.patch('ledger_importer.open')
+    def test_parse_ledger_with_multiple_simple_transactions_and_rules(self, mock_open):
+        """Currently, the ledger parser should simply ignore ledger rules"""
+        mock_open.return_value.__enter__.return_value.readlines.return_value = """
+; silly rule that puts money into savings
+; each time we spend money on a hobby
+=/Expenses:Hobby/
+    Asset:MyBank:Checking  -1.0
+    Asset:MyBank:Savings    1.0
+
+2022/01/02 Consulting Income
+    Asset:MyBank:Checking  $123.45
+    Income:Nerds, Inc.
+
+; silly rule that undoes previous rule
+=/Expenses:Hobby/
+    Asset:MyBank:Checking   1.0
+    Asset:MyBank:Savings   -1.0
+
+2022/01/03 20m CW HF Radio Kit
+    Expenses:Hobby:Ham Radio  $75
+    Asset:MyBank:Checking
+
+; put silly rule back in place
+=/Expenses:Hobby/
+    Asset:MyBank:Checking  -1.0
+    Asset:MyBank:Savings    1.0
+
+""".split('\n')
+        transactions = ledger_importer.import_ledger('fake.ledger')
+
+        self.assertEqual(len(transactions), 2)
+        t1 = transactions[0]
+
+        self.assertEqual(t1.date, '2022/01/02')
+        self.assertEqual(t1.description, 'Consulting Income')
+
+        self.assertEqual(len(t1.transfers), 2)
+        transfer1, transfer2 = t1.transfers
+        self.assertEqual(transfer1.account, 'Asset:MyBank:Checking')
+        self.assertEqual(transfer1.amount, 123.45)
+        self.assertEqual(transfer1.unit, '$')
+        self.assertEqual(transfer1.status, TransferStatus.DEFAULT)
+
+        self.assertEqual(transfer2.account, 'Income:Nerds, Inc.')
+        self.assertEqual(transfer2.amount, None)
+        self.assertEqual(transfer2.unit, None)
+        self.assertEqual(transfer2.status, TransferStatus.DEFAULT)
+
+        t2 = transactions[1]
+        self.assertEqual(t2.date, '2022/01/03')
+        self.assertEqual(t2.description, '20m CW HF Radio Kit')
+
+        self.assertEqual(len(t2.transfers), 2)
+        transfer1, transfer2 = t2.transfers
+        self.assertEqual(transfer1.account, 'Expenses:Hobby:Ham Radio')
+        self.assertEqual(transfer1.amount, 75.0)
+        self.assertEqual(transfer1.unit, '$')
+        self.assertEqual(transfer1.status, TransferStatus.DEFAULT)
+
+        self.assertEqual(transfer2.account, 'Asset:MyBank:Checking')
+        self.assertEqual(transfer2.amount, None)
+        self.assertEqual(transfer2.unit, None)
+        self.assertEqual(transfer2.status, TransferStatus.DEFAULT)
 
 if __name__ == '__main__':
     unittest.main()

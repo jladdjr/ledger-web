@@ -259,7 +259,9 @@ def import_ledger(path: str) -> None:
         lines_without_comments = _strip_comments(lines[start:end + 1])
 
         # skip block if lines only contain comments
-        if len(lines_without_comments) > 0:
+        # also, skip rules
+        if len(lines_without_comments) > 0 and \
+           not _is_rule(lines_without_comments):
             transaction = _form_transaction(lines_without_comments)
             transactions.append(transaction)
 
