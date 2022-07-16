@@ -3,7 +3,7 @@ import logging
 import re
 import sys
 
-from ledger import Transaction, Transfer, TransferStatus
+from ledger import Ledger, Transaction, Transfer, TransferStatus
 
 
 logger = logging.getLogger(__name__)
@@ -247,6 +247,8 @@ def _form_transaction(text: list[str]):
 
 
 def import_ledger(path: str) -> None:
+    ledger = Ledger()
+
     try:
         logger.debug(f'Importing {path}')
         with open(path, 'r') as ledger_file:
@@ -258,7 +260,6 @@ def import_ledger(path: str) -> None:
         return []
 
     logger.debug('Beginning to parse {path}')
-    transactions = []
     last_end = -1  # inclusive
     while last_end < len(lines):
         start = _scan_to_nonempty_line(lines, last_end + 1)
@@ -274,7 +275,7 @@ def import_ledger(path: str) -> None:
         if len(lines_without_comments) > 0 and \
            not _is_rule(lines_without_comments):
             transaction = _form_transaction(lines_without_comments)
-            transactions.append(transaction)
+            ledger.add_transaction(transaction)
             log_msg = f'Imported transaction dated {transaction.date}, ' + \
                       f'with description {transaction.description}, ' + \
                       f'containing {len(transaction.transfers)} transfers'
@@ -282,7 +283,7 @@ def import_ledger(path: str) -> None:
 
         last_end = end
 
-    return transactions
+    return ledger
 
 
 if __name__ == '__main__':
@@ -295,5 +296,5 @@ if __name__ == '__main__':
     if args.verbose:
         logger.setLevel(logging.DEBUG)
 
-    transactions = import_ledger(args.path)
-    logger.info(f'Imported {len(transactions)} transactions')
+    ledger = import_ledger(args.path)
+    logger.info(f'Imported {len(ledger.transactions)} transactions')
