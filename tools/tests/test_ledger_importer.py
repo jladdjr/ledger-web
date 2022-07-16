@@ -310,7 +310,7 @@ class TestLedgerImporter(unittest.TestCase):
     Asset:MyBank:Checking  $123.45
     Income:Nerds, Inc.
 """.split('\n')
-        ledger = ledger_importer.import_ledger('fake.ledger')
+        ledger = ledger_importer.import_ledger_file('fake.ledger')
         transactions = ledger.transactions
 
         self.assertEqual(len(transactions), 1)
@@ -342,7 +342,7 @@ class TestLedgerImporter(unittest.TestCase):
     Expenses:Hobby:Ham Radio  $75
     Asset:MyBank:Checking
 """.split('\n')
-        ledger = ledger_importer.import_ledger('fake.ledger')
+        ledger = ledger_importer.import_ledger_file('fake.ledger')
         transactions = ledger.transactions
 
         self.assertEqual(len(transactions), 2)
@@ -402,7 +402,7 @@ class TestLedgerImporter(unittest.TestCase):
 
 ; That's it!
 """.split('\n')
-        ledger = ledger_importer.import_ledger('fake.ledger')
+        ledger = ledger_importer.import_ledger_file('fake.ledger')
         transactions = ledger.transactions
 
         self.assertEqual(len(transactions), 2)
@@ -468,7 +468,7 @@ class TestLedgerImporter(unittest.TestCase):
     Asset:MyBank:Savings    1.0
 
 """.split('\n')
-        ledger = ledger_importer.import_ledger('fake.ledger')
+        ledger = ledger_importer.import_ledger_file('fake.ledger')
         transactions = ledger.transactions
 
         self.assertEqual(len(transactions), 2)

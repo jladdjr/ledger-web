@@ -2,6 +2,7 @@ import argparse
 import logging
 import re
 import sys
+from typing import Union
 
 from ledger import Ledger, Transaction, Transfer, TransferStatus
 
@@ -246,8 +247,13 @@ def _form_transaction(text: list[str]):
     return Transaction(date=date, description=description, transfers=transfers)
 
 
-def import_ledger(path: str) -> None:
-    ledger = Ledger()
+def import_ledger_file(path: str, ledger: Union[Ledger, None] = None) -> None:
+    """Imports transactions found in `path`
+    into `ledger` object. If `ledger` is not provided,
+    one is created. In both cases, the ledger object used
+    is returned."""
+    if not ledger:
+        ledger = Ledger()
 
     try:
         logger.debug(f'Importing {path}')
@@ -282,7 +288,6 @@ def import_ledger(path: str) -> None:
             logger.debug(log_msg)
 
         last_end = end
-
     return ledger
 
 
@@ -296,5 +301,5 @@ if __name__ == '__main__':
     if args.verbose:
         logger.setLevel(logging.DEBUG)
 
-    ledger = import_ledger(args.path)
+    ledger = import_ledger_file(args.path)
     logger.info(f'Imported {len(ledger.transactions)} transactions')
