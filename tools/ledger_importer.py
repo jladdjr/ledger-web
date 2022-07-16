@@ -14,8 +14,26 @@ class MalformedTransaction(Exception):
 class MalformedTransfer(Exception):
     pass
 
+
 def _has_text(s: str) -> bool:
     return len(s.strip()) != 0
+
+
+def _is_rule(lines: list[str]) -> bool:
+    """Determines if list of lines represents a ledger rule.
+
+    Note that lines should be stripped of comments before
+    calling this function."""
+    if len(lines) == 0:
+        return False
+
+    if len(lines[0]) == 0:
+        return False
+
+    # If first line begins with an equal sign, we assume
+    # this is a rule, whether the rest of the rule is
+    # well-formed or not
+    return lines[0][0] == '='
 
 
 def _scan_to_nonempty_line(text: list[str], start_line: int) -> int:
@@ -60,6 +78,7 @@ def _scan_to_last_nonempty_line(text: list[str], start_line: int) -> int:
             curr_line += 1
         else:
             return curr_line - 1
+
 
 def _strip_comments(lines: list[str]) -> list[str]:
     def has_content(line):

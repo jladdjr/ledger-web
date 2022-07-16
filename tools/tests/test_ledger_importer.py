@@ -20,6 +20,39 @@ class TestLedgerImporter(unittest.TestCase):
         self.assertEqual(ledger_importer._has_text('    Foo:Bar:Baz  $192.50'), True)
         self.assertEqual(ledger_importer._has_text('    Biz:Baz'), True)
 
+    def test_is_rule(self):
+        lines = ['=/Expenses:Clothing/',
+                 '    [Assets:Budget:Clothing]  -1.0',
+                 '    [Assets:MyBank:Checking]   1.0']
+        self.assertTrue(ledger_importer._is_rule(lines))
+
+        lines = ['2022/07/16 My Transaction',
+                 '    Expenses:Clothing  $17.50',
+                 '    Assets:MyBank:Checking']
+        self.assertFalse(ledger_importer._is_rule(lines))
+
+        lines = ['; This transaction has a comment',
+                 '2022/07/16 My Transaction',
+                 '    Expenses:Clothing  $17.50',
+                 '    Assets:MyBank:Checking']
+        self.assertFalse(ledger_importer._is_rule(lines))
+
+        lines = ['; This is nothing but a',
+                 '; block comment']
+        self.assertFalse(ledger_importer._is_rule(lines))
+
+        self.assertFalse(ledger_importer._is_rule([]))
+
+        self.assertFalse(ledger_importer._is_rule(['']))
+
+        self.assertFalse(ledger_importer._is_rule([' ']))
+
+        # commented out rule
+        lines = [';=/Expenses:Clothing/',
+                 ';    [Assets:Budget:Clothing]  -1.0',
+                 ';    [Assets:MyBank:Checking]   1.0']
+        self.assertFalse(ledger_importer._is_rule(lines))
+
     def test_scan_to_nonempty_line(self):
         text1 = ['a', 'b', 'c']
         self.assertEqual(ledger_importer._scan_to_nonempty_line(text1, 0), 0)
