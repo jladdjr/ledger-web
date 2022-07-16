@@ -163,17 +163,19 @@ def _parse_status_symbol(status_text):
 
 def _form_transaction(text: list[str]):
     # parse date
+    # TODO: Currently ignores setting effective date
+    #       e.g. 2022/02/25=2022/03/07
     date_text = text[0].split()[0]
-    res = re.match(r'^\d{4}/\d{2}/\d{2}', date_text)
+    res = re.match(r'^(\d{4}/\d{2}/\d{2})(=\d{4}/\d{2}/\d{2})?', date_text)
     if not res:
         raise MalformedTransaction(f'Expected date, found {text[0]}')
-    date = res.group(0)
+    date = res.group(1)
 
     # parse description
-    res = re.match(r'^\d{4}/\d{2}/\d{2}\s+(.*)\s*$', text[0])
+    res = re.match(r'^\d{4}/\d{2}/\d{2}(=\d{4}/\d{2}/\d{2})?\s+(.*)\s*$', text[0])
     if not res:
         raise MalformedTransaction(f'Could not find description, found: {text[0]}')
-    description = res.group(1)
+    description = res.group(2)
 
     # parse transfers
     if len(text) < 2:
@@ -210,7 +212,7 @@ def _form_transaction(text: list[str]):
             # - and unit must have one or more non-space characters
             # TODO: Currently ignores price information
             #       e.g. 5 FOO @ $20.00
-            res = re.match(r'^\s{4}\s*(([*!] )?)((\S+ )*\S+)\s{2}\s*([0-9.]+ \S+)( @ \S+)$', line)
+            res = re.match(r'^\s{4}\s*(([*!] )?)((\S+ )*\S+)\s{2}\s*(-?[0-9.]+ \S+)( @ \S+)?$', line)
             if res is not None:
                 status = _parse_status_symbol(res.group(1))
                 account = res.group(3)
