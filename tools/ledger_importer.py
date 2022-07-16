@@ -59,7 +59,22 @@ def _strip_comments(lines: list[str]) -> list[str]:
         """determine if line contains more than
         just a comment"""
         return not re.match(r'^\s*;.*$', line)
-    return list(filter(has_content, lines))
+    lines_with_content = list(filter(has_content, lines))
+
+    def strip_inline_comments(line):
+        res = re.match(r'^([^;]*);.*$', line)
+
+        if not res:
+            # no comments found, return line as is
+            return line
+        # found a comment, return all content
+        # preceeding the comment, except for any whitespace
+        # found just before the comment
+        return res.group(1).rstrip()
+
+    lines_without_inline_comments = map(strip_inline_comments, lines_with_content)
+
+    return list(lines_without_inline_comments)
 
 
 class MalformedTransaction(Exception):
@@ -151,8 +166,12 @@ def import_ledger(path: str) -> None:
 
         end = _scan_to_last_nonempty_line(lines, start)
 
-        transaction = _form_transaction(lines[start:end + 1])
-        transactions.append(transaction)
+        lines_without_comments = _strip_comments(lines[start:end + 1])
+
+        # skip block if lines only contain comments
+        if len(lines_without_comments) > 0:
+            transaction = _form_transaction(lines_without_comments)
+            transactions.append(transaction)
 
         last_end = end
 
