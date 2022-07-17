@@ -24,7 +24,7 @@ def import_bank_transaction_profile(path: str):
         raw_config = f.read()
         bank_configs = yaml.safe_load(raw_config)
 
-    bank_profiles = []
+    bank_profiles = {}
     for bank in bank_configs['banks']:
         config = bank_configs['banks'][bank]['transaction_column_mapping']
 
@@ -34,12 +34,14 @@ def import_bank_transaction_profile(path: str):
 
         profile = BankTransactionProfile(bank, amount_col,
                                          credit_amount_col, debit_amount_col)
-        bank_profiles.append(profile)
+        bank_profiles[bank] = profile
 
     return bank_profiles
 
 
 def import_bank_transactions(path: str, bank_profile: BankTransactionProfile):
+    """Note: Function currently does not handle files with windows
+    line endings (e.g. \r\n, unix systems show an extra ^M at the end of the line)"""
     amount_col = bank_profile.amount
     credit_amount_col = bank_profile.credit_amount
     debit_amount_col = bank_profile.debit_amount
@@ -91,9 +93,10 @@ if __name__ == '__main__':
     ledger = import_ledger_file('/home/jim/ledger/ladds.ledger')
 
     profiles = import_bank_transaction_profile('/home/jim/.ledgerweb/bank_config.yml')
-    profile = profiles[0]
+    profile = profiles['onpoint']
 
-    bank_transactions = import_bank_transactions('/home/jim/ledger/statements/chase/transactions.csv', profile)
+    # bank_transactions = import_bank_transactions('/home/jim/ledger/statements/chase/transactions.csv', profile)
+    bank_transactions = import_bank_transactions('/home/jim/ledger/statements/onpoint/transactions.csv', profile)
 
     for tx in bank_transactions:
         found_match = False
