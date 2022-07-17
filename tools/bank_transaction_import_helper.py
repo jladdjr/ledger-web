@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
+import csv
 from typing import Union
 
 import yaml
 
-from ledger import Ledger
 from ledger_importer import import_ledger_file
 
 
@@ -38,9 +38,37 @@ def import_bank_transaction_profile(path: str):
 
     return bank_profiles
 
-# import bank csv file
-# interactively ask what each column represents
-# offer to save the colummn mapping as a bank csv profile
+
+def import_bank_transactions(path: str, bank_profile: BankTransactionProfile):
+    amount_col = bank_profile.amount
+    credit_amount_col = bank_profile.credit_amount
+    debit_amount_col = bank_profile.debit_amount
+
+    def get_amount(csv_row):
+        if amount_col:
+            return csv_row[amount_col]
+        credit = csv_row[credit_amount_col]
+        debit = csv_row[debit_amount_col]
+
+        if len(credit) > 0:
+            return float(credit)
+        else:
+            return -1.0 * float(debit)
+
+    amount_to_full_transaction_tuples = []
+    with open(path, 'r', newline='') as f:
+        reader = csv.reader(f)
+
+        first_row = True
+        for row in reader:
+            if first_row:
+                first_row = False
+                continue
+            amount = get_amount(row)
+            row_as_str = ', '.join(row)
+            amount_to_full_transaction_tuples.append((amount, row_as_str))
+
+    return amount_to_full_transaction_tuples
 
 # create empty ledger object
 # load a listener that creates an index of transactions by amount and date
@@ -59,4 +87,28 @@ def import_bank_transaction_profile(path: str):
 
 
 if __name__ == '__main__':
-    pass
+    # quick and dirty approach to have something useful rn
+    ledger = import_ledger_file('/home/jim/ledger/ladds.ledger')
+
+    profiles = import_bank_transaction_profile('/home/jim/.ledgerweb/bank_config.yml')
+    profile = profiles[0]
+
+    bank_transactions = import_bank_transactions('/home/jim/ledger/statements/chase/transactions.csv', profile)
+
+    for tx in bank_transactions:
+        found_match = False
+        amount = abs(float(tx[0]))
+        raw_line = tx[1]
+
+        for ledger_tx in ledger.transactions:
+            if found_match:
+                break
+            for transfer in ledger_tx.transfers:
+                if found_match:
+                    break
+                ledger_tx_amount = transfer.amount
+                if ledger_tx_amount == amount:
+                    found_match = True
+
+        if not found_match:
+            print(f'MISSING: {amount} => {raw_line}')
