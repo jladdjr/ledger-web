@@ -4,6 +4,9 @@ from ledger import Ledger
 from ledger_importer import import_ledger_file
 
 
+def import_bank_transaction_profile():
+    pass
+
 # import bank csv file
 # interactively ask what each column represents
 # offer to save the colummn mapping as a bank csv profile
