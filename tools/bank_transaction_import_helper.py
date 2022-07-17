@@ -1,11 +1,42 @@
 #!/usr/bin/env python3
 
+from typing import Union
+
+import yaml
+
 from ledger import Ledger
 from ledger_importer import import_ledger_file
 
 
-def import_bank_transaction_profile():
-    pass
+class BankTransactionProfile:
+    def __init__(self, bank_alias: str,
+                 amount: Union[int, None] = None,
+                 credit_amount: Union[int, None] = None,
+                 debit_amount: Union[int, None] = None):
+        self.bank_alias = bank_alias
+        self.amount = amount
+        self.credit_amount = credit_amount
+        self.debit_amount = debit_amount
+
+
+def import_bank_transaction_profile(path: str):
+    with open(path, 'r') as f:
+        raw_config = f.read()
+        bank_configs = yaml.safe_load(raw_config)
+
+    bank_profiles = []
+    for bank in bank_configs['banks']:
+        config = bank_configs['banks'][bank]['transaction_column_mapping']
+
+        amount_col = config.get('amount', None)
+        credit_amount_col = config.get('credit_amount', None)
+        debit_amount_col = config.get('debit_amount', None)
+
+        profile = BankTransactionProfile(bank, amount_col,
+                                         credit_amount_col, debit_amount_col)
+        bank_profiles.append(profile)
+
+    return bank_profiles
 
 # import bank csv file
 # interactively ask what each column represents
